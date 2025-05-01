@@ -23,24 +23,30 @@ class AuthController extends Controller
      */
     public function register(Request $request): JsonResponse
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+        try {
+            $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+                'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+            ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-        return $this->success([
-            'user' => $user,
-            'token' => $token,
-        ], 'User registered successfully', 201);
+            return $this->success([
+                'user' => $user,
+                'token' => $token,
+            ], 'User registered successfully', 201);
+        } catch (ValidationException $e) {
+            return $this->validationError($e);
+        } catch (\Exception $e) {
+            return $this->error('Registration failed: ' . $e->getMessage(), 500);
+        }
     }
 
     /**
@@ -51,24 +57,30 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
-        $request->validate([
-            'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
-        ]);
-
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+        try {
+            $request->validate([
+                'email' => ['required', 'string', 'email'],
+                'password' => ['required', 'string'],
             ]);
+
+            if (!Auth::attempt($request->only('email', 'password'))) {
+                return $this->error('The provided credentials are incorrect.', 401, null, [
+                    'email' => ['The provided credentials are incorrect.']
+                ]);
+            }
+
+            $user = $request->user();
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return $this->success([
+                'user' => $user,
+                'token' => $token,
+            ], 'User logged in successfully');
+        } catch (ValidationException $e) {
+            return $this->validationError($e);
+        } catch (\Exception $e) {
+            return $this->error('Login failed: ' . $e->getMessage(), 500);
         }
-
-        $user = $request->user();
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return $this->success([
-            'user' => $user,
-            'token' => $token,
-        ], 'User logged in successfully');
     }
 
     /**
