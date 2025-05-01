@@ -22,12 +22,31 @@ class UserController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $users = User::with('roles')->get();
+            $perPage = $request->query('per_page', 10);
+            $perPage = $perPage > 100 ? 100 : $perPage; // Limit max per page
 
-            return $this->success($users);
+            $users = User::with('roles')
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            return $this->success([
+                'users' => $users->items(),
+                'pagination' => [
+                    'total' => $users->total(),
+                    'per_page' => $users->perPage(),
+                    'current_page' => $users->currentPage(),
+                    'last_page' => $users->lastPage(),
+                    'from' => $users->firstItem(),
+                    'to' => $users->lastItem(),
+                    'links' => [
+                        'prev' => $users->previousPageUrl(),
+                        'next' => $users->nextPageUrl(),
+                    ]
+                ]
+            ]);
         } catch (\Exception $e) {
             return $this->error('Failed to retrieve users: ' . $e->getMessage(), 500);
         }
