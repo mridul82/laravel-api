@@ -21,3 +21,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Private documentation
+FRONTEND_API_GUIDE.md
