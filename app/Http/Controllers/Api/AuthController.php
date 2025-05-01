@@ -36,11 +36,28 @@ class AuthController extends Controller
                 'password' => Hash::make($request->password),
             ]);
 
+            // Assign default role to new user (User role)
+            $userRole = \Spatie\Permission\Models\Role::where('name', 'User')->first();
+            if ($userRole) {
+                $user->assignRole($userRole);
+            }
+
             $token = $user->createToken('auth_token')->plainTextToken;
+
+            // Load user roles and permissions for frontend authorization
+            $user->load('roles.permissions');
+
+            // Get a flat list of permissions for easier checking on the frontend
+            $permissions = $user->getAllPermissions()->pluck('name');
 
             return $this->success([
                 'user' => $user,
                 'token' => $token,
+                'permissions' => $permissions,
+                'redirect' => [
+                    'path' => '/dashboard',
+                    'name' => 'Dashboard'
+                ]
             ], 'User registered successfully', 201);
         } catch (ValidationException $e) {
             return $this->validationError($e);
@@ -72,9 +89,20 @@ class AuthController extends Controller
             $user = $request->user();
             $token = $user->createToken('auth_token')->plainTextToken;
 
+            // Load user roles and permissions for frontend authorization
+            $user->load('roles.permissions');
+
+            // Get a flat list of permissions for easier checking on the frontend
+            $permissions = $user->getAllPermissions()->pluck('name');
+
             return $this->success([
                 'user' => $user,
                 'token' => $token,
+                'permissions' => $permissions,
+                'redirect' => [
+                    'path' => '/dashboard',
+                    'name' => 'Dashboard'
+                ]
             ], 'User logged in successfully');
         } catch (ValidationException $e) {
             return $this->validationError($e);
@@ -104,6 +132,17 @@ class AuthController extends Controller
      */
     public function me(Request $request): JsonResponse
     {
-        return $this->success($request->user());
+        $user = $request->user();
+
+        // Load user roles and permissions for frontend authorization
+        $user->load('roles.permissions');
+
+        // Get a flat list of permissions for easier checking on the frontend
+        $permissions = $user->getAllPermissions()->pluck('name');
+
+        return $this->success([
+            'user' => $user,
+            'permissions' => $permissions
+        ]);
     }
 }
